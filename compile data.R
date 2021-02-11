@@ -6,7 +6,7 @@
 # Revised 10 February 2021, coding updates
 # Data source: https://www.ncei.noaa.gov/metadata/geoportal/rest/metadata/item/gov.noaa.nodc%3A0187513/html
 
-options(scipen=999)  # turn-off scientific notation like 1e+48
+#options(scipen=999)  # turn-off scientific notation like 1e+48
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -37,6 +37,7 @@ library(lubridate)
 # urospp_100m3 = red and white count per 100 m3 of volume
 
 rm(list = ls())
+
 # set project directories
 projdir <- "D:\\Documents\\Shoals\\2021 class\\Analysis\\plankton\\"
 projdir.dat <- "D:\\Documents\\Shoals\\2021 class\\Analysis\\data\\"
@@ -53,32 +54,27 @@ Catch%>%                                        # same table using dplyr
   spread(month, n)%>%                           # spread month as header
   kable()                                       # formatting
 
-# Distance calculation, longitude then latitude
-# Declare matrices for intermediate calculations
-y1 <- data.frame(matrix(nrow=1,ncol=2,byrow=TRUE));y1
-y2 <- data.frame(matrix(nrow=1,ncol=2,byrow=TRUE));y2
-
-# Appledore Island location
-Lat.SML <- 42.987727
-Lon.SML <- -70.613940
-
 # Compute great circle distance from each station to Appledore Island
-nsamp <- nrow(Catch)					 # 31,351 samples
-Catch %>%                      # create column to store distance computation
+y1 <- cbind(-70.613940,42.987727) # Appledore Island location
+Catch %>%                         # select station locations
+  select(lon,lat) ->
+  Catch.locations
+nsamp <- nrow(Catch)					    # 31,351 samples
+Catch %>%                         # create column to store distance computation
   mutate(distance=0) ->
   Catch
-
-for (j in 1:nsamp)
+for (j in 1:nsamp)                # loop through the distance computation
 {
-  y1[1:2] <- c(Lon.SML,Lat.SML)   					# matrix of first set of coordinates, longitude then latitude
-  y2[1:2] <- c(Catch$lon[j],Catch$lat[j])   # matrix of second set of coordinates,longitude then latitude
-  Catch$distance[j] <- rdist.earth(y1[1:2], y2[1:2], miles = FALSE, R = NULL)		
+  y2 <- Catch.locations[j,]       # select single location
+  Catch$distance[j] <- rdist.earth(y1, y2, miles = FALSE, R = NULL) 
+                                  # compute distance for all pair-wise combinations		
 }
 
 # Tally occurrence of zooplankton and ichthyoplankton by area and volume
 #   Sometimes only one taxa group is tallied for a cruise
 #   1 = tallied, 0 = not tallied
 sum.catch <- data.frame(matrix(data=NA,nrow=nsamp,ncol=8))
+
 colnames(sum.catch) = c("zooparea","zoopvol","ichthyoarea","ichthyovol",
                         "zooparea.present","zoopvol.present",
                         "ichthyoarea.present","ichthyovol.present")
@@ -100,32 +96,29 @@ for (j in 1:nsamp)
 
 Catch <- cbind(Catch,sum.catch)
 
-# Check that unsampled (NA) rows are assigned '0' for *.present columns
-Catch[23912,]   # zooparea.present = 0
-Catch[27511,]   # zooparea.present = 0
-Catch[27521,]   # zooparea.present = 0
-Catch[27539,]   # ichthyoarea.present = 0
-Catch[27547,]   # ichthyoarea.present = 0
-Catch[28760,]   # ichthyoarea.present = 0
-
 # Compare zooplankton and ichthyoplankton counts
-xtabs(~ year, data = subset(Catch,zoopvol.present==1))
-xtabs(~ year, data = subset(Catch,ichthyovol.present==1))
-# for example, counts for 2016 differ: 
-#   In input file, one NA for zooplankton and 6 more samples for zooplankton
-#   i.e., looks okay 
+Catch %>%
+  filter(ichthyovol.present==1) %>%   # ichthyoplankton counted
+  group_by(year) %>%                  # group by year
+  summarise(n=n()) ->                 # count (n)
+  count.ichthyo                       
+Catch %>%
+  filter(zoopvol.present==1) %>%   # zooplankton counted
+  group_by(year) %>%               # group by year
+  summarise(n=n()) ->              # count (n)
+  count.zoop                       # formatting
+count.plankton.samples <- cbind(count.ichthyo,count.zoop$n)
+colnames(count.plankton.samples) <- c("year","ichthyo","zoop")
+# number of counted samples differs by year
 
-# Write tern prey, total ichthyo, total zoop to file
-Catch.rpt <- subset.data.frame(Catch,select = c(cruise_name,station,
-                                                lat,lon,date,time,depth,
-                                                sfc_temp,sfc_salt,
-                                                btm_temp,btm_salt,
-                                                zoopvol,zoopvol.present,
-                                                ichthyovol,ichthyovol.present,
-                                                cluhar_100m3,urospp_100m3,
-                                                polvir_100m3,scosco_100m3,
-                                                pepspp_100m3,ammspp_100m3,
-                                                year,month,distance))
+# Select columns of interest
+Catch %>%
+  select(cruise_name,station,lat,lon,date,time,depth,
+         sfc_temp,sfc_salt,btm_temp,btm_salt,
+         zoopvol,zoopvol.present,ichthyovol,ichthyovol.present,
+         cluhar_100m3,urospp_100m3,polvir_100m3,scosco_100m3,pepspp_100m3,ammspp_100m3,
+         year,month,distance) ->
+  Catch.rpt
 
 # Log-transform ichthyoplankton catch data
 Catch.rpt$log_cluhar <- log10(Catch.rpt$cluhar_100m3+1)
@@ -138,8 +131,6 @@ Catch.rpt$log_ammspp <- log10(Catch.rpt$ammspp_100m3+1)
 # Select only records where ichthyoplankton volume was measured (27,917 records)
 Catch.rpt <- subset(Catch.rpt,ichthyovol.present==1)
 nrow(Catch.rpt)
-str(Catch.rpt)
-
 write.csv(Catch.rpt, file = "Plankton.csv")
 
 # Data compilation complete
