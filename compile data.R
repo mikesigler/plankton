@@ -3,14 +3,19 @@
 # Michael Sigler
 # May 19, 2019
 # Revised November 22, 2019, July 19, 2020 (to add data through 2017)
+# Revised 10 February 2021, coding updates
 # Data source: https://www.ncei.noaa.gov/metadata/geoportal/rest/metadata/item/gov.noaa.nodc%3A0187513/html
 
 options(scipen=999)  # turn-off scientific notation like 1e+48
-library(fields)
 library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(knitr)
 library(mgcv)
+library(fields)
 library(mapdata)
 library(mapproj)
+library(lubridate)
 
 ############################################################################################################
 # Read plankton file 
@@ -31,11 +36,22 @@ library(mapproj)
 # scosco_100m3 = Atlantic mackerel count per 100 m3 of volume
 # urospp_100m3 = red and white count per 100 m3 of volume
 
-Catch <- as.data.frame(read.csv("EcoMon 2017.csv",header=T))
+rm(list = ls())
+# set project directories
+projdir <- "D:\\Documents\\Shoals\\2021 class\\Analysis\\plankton\\"
+projdir.dat <- "D:\\Documents\\Shoals\\2021 class\\Analysis\\data\\"
+projdir.results <- "D:\\Documents\\Shoals\\2021 class\\Analysis\\results\\"
+
+Catch <- as_tibble(read.csv(paste(projdir.dat,"EcoMon 2017.csv",sep=""),header=T))
 Catch$date <- as.Date(Catch$date, "%Y-%m-%d")		# State Date format 'yyyy-mm-dd'
 Catch$year <- lubridate::year(Catch$date)				# Assign year
 Catch$month <- lubridate::month(Catch$date)			# Assign month
-xtabs(~ year + month, data = Catch)
+#xtabs(~ year + month, data = Catch)             # contingency table
+Catch%>%                                        # same table using dplyr
+  group_by(year, month)%>%                      # group by year and month
+  summarise(n=n())%>%                           # count (n)
+  spread(month, n)%>%                           # spread month as header
+  kable()                                       # formatting
 
 # Distance calculation, longitude then latitude
 # Declare matrices for intermediate calculations
@@ -47,15 +63,17 @@ Lat.SML <- 42.987727
 Lon.SML <- -70.613940
 
 # Compute great circle distance from each station to Appledore Island
-nsamp <- length(Catch$year)											# 31,351 samples
-dist <- data.frame(matrix(nrow=nsamp,ncol=1)); colnames(dist) = "distance"
+nsamp <- nrow(Catch)					 # 31,351 samples
+Catch %>%                      # create column to store distance computation
+  mutate(distance=0) ->
+  Catch
+
 for (j in 1:nsamp)
 {
-  y1[1:2] <- c(Lon.SML,Lat.SML)   									# longitude then latitude
-  y2[1:2] <- c(Catch$lon[j],Catch$lat[j])   							# longitude then latitude
-  dist$distance[j] <- rdist.earth(y1[1:2], y2[1:2], miles = FALSE, R = NULL)		
+  y1[1:2] <- c(Lon.SML,Lat.SML)   					# matrix of first set of coordinates, longitude then latitude
+  y2[1:2] <- c(Catch$lon[j],Catch$lat[j])   # matrix of second set of coordinates,longitude then latitude
+  Catch$distance[j] <- rdist.earth(y1[1:2], y2[1:2], miles = FALSE, R = NULL)		
 }
-Catch <- cbind(Catch,dist)
 
 # Tally occurrence of zooplankton and ichthyoplankton by area and volume
 #   Sometimes only one taxa group is tallied for a cruise
