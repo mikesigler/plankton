@@ -1,4 +1,4 @@
-# Program to compile Gulf of Maine plankton data (EcoMon surveys)
+# Program to compile Northeast US plankton data (EcoMon surveys)
 # In some years, sampling was monthly, but in recent years, sampling focused on April-June and August-November
 # Michael Sigler
 # May 19, 2019
@@ -55,20 +55,18 @@ Catch%>%                                        # same table using dplyr
   kable()                                       # formatting
 
 # Compute great circle distance from each station to Appledore Island
-y1 <- cbind(-70.613940,42.987727) # Appledore Island location
-Catch %>%                         # select station locations
+appledore.location <- cbind(-70.613940,42.987727) # Appledore Island location
+Catch %>%                                         # select station locations
   select(lon,lat) ->
   Catch.locations
-nsamp <- nrow(Catch)					    # 31,351 samples
-Catch %>%                         # create column to store distance computation
+nsamp <- nrow(Catch)					                    # 31,351 samples
+Catch %>%                                         # create column to store distance computation
   mutate(distance=0) ->
   Catch
-for (j in 1:nsamp)                # loop through the distance computation
-{
-  y2 <- Catch.locations[j,]       # select single location
-  Catch$distance[j] <- rdist.earth(y1, y2, miles = FALSE, R = NULL) 
-                                  # compute distance for all pair-wise combinations		
-}
+Catch$distance[1:nsamp] <- rdist.earth(appledore.location, Catch.locations, miles = FALSE, R = NULL) 
+                                                  # all pair-wise distances
+                                                  # distance matches previous values, 
+                                                  #   but computing time much faster (~1 sec vs 1 min)
 
 # Tally occurrence of zooplankton and ichthyoplankton by area and volume
 #   Sometimes only one taxa group is tallied for a cruise
@@ -79,6 +77,8 @@ colnames(sum.catch) = c("zooparea","zoopvol","ichthyoarea","ichthyovol",
                         "zooparea.present","zoopvol.present",
                         "ichthyoarea.present","ichthyovol.present")
 
+# there probably is a faster computing time, dplyr way to do this, 
+#   but I did not revise
 for (j in 1:nsamp)
 {
 # Sum catches
