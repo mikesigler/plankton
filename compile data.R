@@ -1,4 +1,4 @@
-# Program to compile Northeast US plankton data (EcoMon surveys)
+# Program to compile Northeast US continental shelf plankton data (EcoMon surveys)
 # In some years, sampling was monthly, but in recent years, sampling focused on April-June and August-November
 # Michael Sigler
 # May 19, 2019
@@ -6,7 +6,6 @@
 # Revised 10 February 2021, coding updates
 # Data source: https://www.ncei.noaa.gov/metadata/geoportal/rest/metadata/item/gov.noaa.nodc%3A0187513/html
 
-#options(scipen=999)  # turn-off scientific notation like 1e+48
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -131,10 +130,11 @@ Catch.rpt$log_ammspp <- log10(Catch.rpt$ammspp_100m3+1)
 # Select only records where ichthyoplankton volume was measured (27,917 records)
 Catch.rpt <- subset(Catch.rpt,ichthyovol.present==1)
 nrow(Catch.rpt)
-write.csv(Catch.rpt, file = "Plankton.csv")
+write.csv(Catch.rpt, file = paste(projdir.dat,"Plankton.csv",sep=""))
 
-# Data compilation complete
-
+### Data compilation complete ###
+############################################################################
+############################################################################
 ############################################################################
 # THIS HAS BEEN COMPLETED FOR DATA THROUGH 2015 BUT NOT THROUGH 2017 
 # Start data analysis
