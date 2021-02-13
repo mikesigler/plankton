@@ -8,7 +8,6 @@
 #   1988-1998, some sampling occurred, but less balanced seasonally
 #   1999-2017, Ecosystem Monitoring (EcoMon)
 #   2018-2019, sampling occurred but data currently unavailable publicly
-#   In some years, sampling was monthly, but in recent years, sampling focused on April-June and August-November
 # Focus on 6 fish species (ichthyoplankton) that are primary prey of terns
 
 # Call packages (libraries) used in data analysis; run every time
@@ -19,6 +18,7 @@ library(knitr)
 library(lubridate)
 library(mgcv)
 library(fields)
+library(maps)
 library(mapdata)
 library(mapproj)
 
@@ -35,7 +35,7 @@ library(mapproj)
 # volume_100m3 = Zooplankton Displacement Volume (ml)  per 1m2 of surface area
 # zoop_100m3 = Zooplankton count per 100 m3 of volume
 # fish_100m3 = Fish count per 100 m3 of volume
-# merbil_100m3 = silver hake count per 100 m3 of volume
+# polvir_100m3 = pollock count per 100 m3 of volume
 # cluhar_100m3 = Atlantic herring count per 100 m3 of volume
 # ammspp_100m3 = sandlance count per 100 m3 of volume
 # pepspp_100m3 = butterfish count per 100 m3 of volume
@@ -44,7 +44,7 @@ library(mapproj)
 # e.g., log_cluhar = log 10 transformed (value +1) of cluhar_100m3
 # distance = distance (km) from sample location to Appledore Island 
 
-rm(list = ls())
+rm(list = ls())   # clear memory
 
 # Appledore Island location
 Lat.SML <- 42.987727
@@ -80,42 +80,42 @@ Catch %>%
 start.year <- 1977  # all years
 Catch.ich <- subset(Catch, year>=start.year)         
 
-# First GAM, fit as a function of location, year and month
+# First GAM, fit as a function of location (lon, lat), year and month
 # Atlantic herring (Clupea harengus)
 # run GAM
 fit.cluhar <- gam(log_cluhar ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich) 
 
-# diagnostics
+# 2a. diagnostics
 summary(fit.cluhar)$r.sq                                   # R-squared: proportion of variance explained
 hist(residuals(fit.cluhar, type = "deviance"),             # histogram of residuals
      xlab = "Residuals", main = "Histogram of residuals")
 
-# plot results
+# 2b. plot results
 plot(fit.cluhar,pages=0,seWithMean=TRUE,select=2,
      ylim=c(-0.3,0.3),main="herring")                      # year plot
 plot(fit.cluhar,pages=0,seWithMean=TRUE,select=3,
      ylim=c(-0.3,0.3),main="herring")                      # month plot
 vis.gam(fit.cluhar, plot.type="contour", too.far=0.15,     # map
         main="Atlantic herring", xlab="Longitude",ylab="Latitude",color="topo")
-points(Lon.SML, Lat.SML, pch=16, col = "red")
-map('worldHires',fill=T,add=T, col="grey")
+   points(Lon.SML, Lat.SML, pch=16, col = "red")
+   map('worldHires',fill=T,add=T, col="grey")
 
+# 3. Run GAMs for the remaining species
+fit.urospp <- gam(log_urospp ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich)
+fit.polvir <- gam(log_polvir ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich)
+fit.scosco <- gam(log_scosco ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich)
+fit.pepspp <- gam(log_pepspp ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich)
+fit.ammspp <- gam(log_ammspp ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich)
 
-fit.urospp <- gam(log_urospp ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich); summary(fit.urospp); gam.check(fit.urospp)
-fit.merbil <- gam(log_merbil ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich); summary(fit.merbil); gam.check(fit.merbil)
-fit.scosco <- gam(log_scosco ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich); summary(fit.scosco); gam.check(fit.scosco)
-fit.pepspp <- gam(log_pepspp ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich); summary(fit.pepspp); gam.check(fit.pepspp)
-fit.ammspp <- gam(log_ammspp ~ s(lon, lat) + s(year) + s(month,bs='cc'), data=Catch.ich); summary(fit.ammspp); gam.check(fit.ammspp)
-par(mfrow = c(1,1))  # reset plot layout
-
-# Output plotted results to a file
-pdf("GAM 2 output.pdf")
+# Output all plotted results to a file
+# Look at this file after running this code
+pdf(paste(projdir.results,"GAM 3 output.pdf",sep=""))
 par(mfrow = c(2,3))
 
 #by year
 plot(fit.cluhar,pages=0,seWithMean=TRUE,select=2,ylim=c(-0.3,0.3),main="herring")
 plot(fit.urospp,pages=0,seWithMean=TRUE,select=2,ylim=c(-0.2,0.2),main="red/white hake")
-plot(fit.merbil,pages=0,seWithMean=TRUE,select=2,ylim=c(-0.1,0.1),main="silver hake")
+plot(fit.polvir,pages=0,seWithMean=TRUE,select=2,ylim=c(-0.1,0.1),main="pollock")
 plot(fit.scosco,pages=0,seWithMean=TRUE,select=2,ylim=c(-0.1,0.1),main="mackerel")
 plot(fit.pepspp,pages=0,seWithMean=TRUE,select=2,ylim=c(-0.1,0.1),main="butterfish")
 plot(fit.ammspp,pages=0,seWithMean=TRUE,select=2,ylim=c(-0.4,0.4),main="sandlance")
@@ -123,17 +123,18 @@ plot(fit.ammspp,pages=0,seWithMean=TRUE,select=2,ylim=c(-0.4,0.4),main="sandlanc
 #by month
 plot(fit.cluhar,pages=0,seWithMean=TRUE,select=3,ylim=c(-0.3,0.3),main="herring")
 plot(fit.urospp,pages=0,seWithMean=TRUE,select=3,ylim=c(-0.4,0.4),main="red/white hake")
-plot(fit.merbil,pages=0,seWithMean=TRUE,select=3,ylim=c(-0.3,0.3),main="silver hake")
+plot(fit.polvir,pages=0,seWithMean=TRUE,select=3,ylim=c(-0.3,0.3),main="pollock")
 plot(fit.scosco,pages=0,seWithMean=TRUE,select=3,ylim=c(-0.3,0.3),main="mackerel")
 plot(fit.pepspp,pages=0,seWithMean=TRUE,select=3,ylim=c(-0.3,0.3),main="butterfish")
 plot(fit.ammspp,pages=0,seWithMean=TRUE,select=3,ylim=c(-0.6,0.6),main="sandlance")
 
 # spatial plots
+par(mfrow = c(1,1))
 vis.gam(fit.cluhar, plot.type="contour", too.far=0.15, main="Atlantic herring", xlab="Longitude",ylab="Latitude",color="topo")
 points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
 vis.gam(fit.urospp, plot.type="contour", too.far=0.15, main="red white hake", xlab="Longitude",ylab="Latitude",color="topo")
 points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
-vis.gam(fit.merbil, plot.type="contour", too.far=0.15, main="silver hake", xlab="Longitude",ylab="Latitude",color="topo")
+vis.gam(fit.polvir, plot.type="contour", too.far=0.15, main="pollock", xlab="Longitude",ylab="Latitude",color="topo")
 points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
 vis.gam(fit.scosco, plot.type="contour", too.far=0.15, main="Atlantic mackerel", xlab="Longitude",ylab="Latitude",color="topo")
 points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
@@ -142,65 +143,103 @@ points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, co
 vis.gam(fit.ammspp, plot.type="contour", too.far=0.15, main="sandlance", xlab="Longitude",ylab="Latitude",color="topo")
 points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
 
+dev.off()
+
+############################################################
+#4. Fit GAM to log-transformed values, accounting for month#
+# Spatial model by year                                    #
+#   More detailed model than previous model.
+#   This model fits a map for each year 
+#     whereas the previous model fitted one model for all years
+
+# read data
+filename <- paste(projdir.dat,"Plankton.csv",sep="") # filename
+Catch <- as_tibble(read.csv(filename,header=T))      # read file as a "tibble"
+Catch$date <- as.Date(Catch$date, "%Y-%m-%d")		     # Assign Date format 'yyyy-mm-dd'
+
+# Choose analysis years
+start.year <- 1999                               # Ecomon years: 1999-present
+end.year <- 2017                                 # Last year in data set
+num.year <- end.year - start.year + 1
+Catch.ich <- subset(Catch, year>=start.year) 
+
+# Run year-specific map model for butterfish 
+pdf(paste(projdir.results,"GAM 4 butterfish output.pdf",sep=""))
+par(mfrow = c(2,3))
+  fit.pepspp <- gam(Catch.ich$log_pepspp ~ s(lon, lat, by=as.factor(year),id=0) +
+                 s(month,bs='cc'),
+                 data=Catch.ich, dist ="normal")   # fit GAM to butterfish data  
+  summary(fit.pepspp)$r.sq                                   # R-squared: proportion of variance explained
+  plot(fit.pepspp,pages=0,seWithMean=TRUE,select=num.year+1,ylim=c(-0.4,0.4),
+       main=paste("butterfish by month"))     # by month plot
+  
+# by year group plots  
+  for (k in start.year:end.year) {
+    vis.gam(fit.spp, view=c("lon","lat"), plot.type="contour", too.far=0.15, cond=list(year=k),
+            main=paste("butterfish year ", k), xlab="Longitude",ylab="Latitude",color="topo") 
+    points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
+  }
 par(mfrow = c(1,1))
 dev.off()
 
 ############################################################
-#3. Fit GAM to log-transformed values, accounting for month#
-# Spatial model by year groups (here 1-year groups)        #
-############################################################
-############################################################
-############################################################
-# I NEED TO SHORTEN THIS EXERCISE SO THAT THE CODE RUNS FASTER ON A STUDENT COMPUTER
-############################################################
-############################################################
-############################################################
+#5. Fit GAM to log-transformed values, accounting for month#
+# Spatial model by year                                    #
+#   More detailed model than previous model.
+#   This model fits a map for each year 
+#     whereas the previous model fitted one model for all years
+### DO NOT RUN ### TAKES SEVERAL MINUTES ON A "FAST" COMPUTER
+# ONLY REVIEW THE OUTPUT IN THE FILE "GAM 5 all species output.pdf"
 
-# Read data
-Catch <- as.data.frame(read.csv("Plankton.csv",header=T))   # The output file "Plankton.csv" has an added first column (record number)
-Catch$date <- as.Date(Catch$date, "%Y-%m-%d")		            # Assign Date format 'yyyy-mm-dd'
-xtabs(~ year + month, data = Catch)                         # Crosstabulate the data by year and month
-
-# Table of species names
-name.tbl <- data.frame(spp.num = seq(26,31),spp.name = c("herring","red white hake","silver hake","mackerel","butterfish","sandlance"))
-
-# Choose analysis years
-start.year <- 1999                                          # Ecomon years: 1999-present
-end.year <- 2016                                            # Last year in data set
-Catch.ich <- subset(Catch, year>=start.year) 
-xtabs(~ year + month, data = Catch.ich)                     # Crosstabulate the data by year and month
-
-# Year grouping
-#year.int <- 3                                                        # Size of year group (1, 3, 5, 10)
-year.int <- 1                                                         # Size of year group (1, 3, 5, 10)
-
-# Compute some indices to control the next program steps (GAM and plotting)
-Catch.ich$year.group <- ceiling((Catch.ich$year-1971+1)/year.int)     # create year grouping (e.g., 1973 is a member of year.group 1 (1971-1975))
-table(Catch.ich$year.group,Catch.ich$month)                           # tabulate year group by month
-min.year.group <- min(Catch.ich$year.group)
-max.year.group <- max(Catch.ich$year.group)
-num.year.group <- max.year.group - min.year.group + 1                 # determine the number of year groups
-
-# Run model (run time is several minutes)
-pdf("GAM 3 output.pdf")
+# Run year-specific map model for remaining species 
+fit.cluhar <- gam(Catch.ich$log_cluhar ~ s(lon, lat, by=as.factor(year),id=0) +
+                    s(month,bs='cc'),
+                  data=Catch.ich, dist ="normal")          # fit GAM   
+fit.urospp <- gam(Catch.ich$log_urospp ~ s(lon, lat, by=as.factor(year),id=0) +
+                    s(month,bs='cc'),
+                  data=Catch.ich, dist ="normal")          # fit GAM   
+fit.polvir <- gam(Catch.ich$log_polvir ~ s(lon, lat, by=as.factor(year),id=0) +
+                    s(month,bs='cc'),
+                  data=Catch.ich, dist ="normal")          # fit GAM   
+fit.scosco <- gam(Catch.ich$log_scosco ~ s(lon, lat, by=as.factor(year),id=0) +
+                    s(month,bs='cc'),
+                  data=Catch.ich, dist ="normal")          # fit GAM   
+fit.ammspp <- gam(Catch.ich$log_ammspp ~ s(lon, lat, by=as.factor(year),id=0) +
+                 s(month,bs='cc'),
+               data=Catch.ich, dist ="normal")          # fit GAM   
+# by year group plots  
+pdf(paste(projdir.results,"GAM 5 all species output.pdf",sep=""))
 par(mfrow = c(2,3))
-
-# This for loop goes through each species to run the gam, e.g., 26=cluhar, 27=urospp, etc.
-for (i in 26:31) {  
-  j <- i - 25   # counter for species names
-  fit.spp <- gam(Catch.ich[,i] ~ s(lon, lat, by=as.factor(year.group),id=0) + s(month,bs='cc'), data=Catch.ich, dist ="normal")   # GAM
-  summary(fit.spp); # gam.check(fit.spp)
-  plot(fit.spp,pages=0,seWithMean=TRUE,select=num.year.group+1,ylim=c(-0.4,0.4),main=paste(name.tbl[j,2],"by month"))     # by month plot
-  
-  # by year group plots  
-  for (k in min.year.group:max.year.group) {
-    vis.gam(fit.spp, view=c("lon","lat"), plot.type="contour", too.far=0.15, cond=list(year.group=k),
-            main=paste(name.tbl[j,2]," year group ",k*year.int+1971-1), xlab="Longitude",ylab="Latitude",color="topo") 
-    points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
-  }
+for (k in start.year:end.year) {
+  vis.gam(fit.cluhar, view=c("lon","lat"), plot.type="contour", too.far=0.15, cond=list(year=k),
+          main=paste("herring year ", k), xlab="Longitude",ylab="Latitude",color="topo") 
+  points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
+  vis.gam(fit.urospp, view=c("lon","lat"), plot.type="contour", too.far=0.15, cond=list(year=k),
+          main=paste("red white hake year ", k), xlab="Longitude",ylab="Latitude",color="topo") 
+  points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
+  vis.gam(fit.polvir, view=c("lon","lat"), plot.type="contour", too.far=0.15, cond=list(year=k),
+          main=paste("pollock year ", k), xlab="Longitude",ylab="Latitude",color="topo") 
+  points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
+  vis.gam(fit.scosco, view=c("lon","lat"), plot.type="contour", too.far=0.15, cond=list(year=k),
+          main=paste("mackerel year ", k), xlab="Longitude",ylab="Latitude",color="topo") 
+  points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
+  vis.gam(fit.pepspp, view=c("lon","lat"), plot.type="contour", too.far=0.15, cond=list(year=k),
+          main=paste("butterfish year ", k), xlab="Longitude",ylab="Latitude",color="topo") 
+  points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
+  vis.gam(fit.ammspp, view=c("lon","lat"), plot.type="contour", too.far=0.15, cond=list(year=k),
+          main=paste("sand lance year ", k), xlab="Longitude",ylab="Latitude",color="topo") 
+  points(Lon.SML, Lat.SML, pch=16, col = "red"); map('worldHires',fill=T,add=T, col="grey")
 }
 par(mfrow = c(1,1))
 dev.off()
+
+# some extra code
+# Table of species names
+name.tbl <- as_tibble(data.frame(spp.num = seq(26,31),
+                       spp.name = c("herring","red.white.hake","pollock","mackerel","butterfish","sandlance"),
+                       spp.var = c("Catch.ich$log_cluhar","Catch.ich$log_urospp",
+                                   "Catch.ich$log_polvir","Catch.ich$log_scosco",
+                                   "Catch.ich$log_pepspp","lCatch.ich$og_ammspp")))
 
 ####################################
 ####################################
