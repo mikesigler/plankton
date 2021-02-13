@@ -1,0 +1,10 @@
+# Install packages for your first time using these packages
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("tidyr")
+install.packages("knitr")
+install.packages("lubridate")
+install.packages("mgcv")
+install.packages("fields")
+install.packages("mapdata")
+install.packages("mapproj")
