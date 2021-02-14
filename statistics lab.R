@@ -16,7 +16,9 @@ library(ggplot2)
 library(tidyr)
 library(knitr)
 library(lubridate)
+library(ggpubr)
 library(mgcv)
+library(PerformanceAnalytics)
 library(fields)
 library(maps)
 library(mapdata)
@@ -241,51 +243,47 @@ name.tbl <- as_tibble(data.frame(spp.num = seq(26,31),
                                    "Catch.ich$log_polvir","Catch.ich$log_scosco",
                                    "Catch.ich$log_pepspp","lCatch.ich$og_ammspp")))
 
-####################################
-####################################
-####################################
+#############################################################################################
 # CORRELATION COEFFICIENT
-####################################
-####################################
-####################################
-install.packages("dplyr")
-install.packages("PerformanceAnalytics")
-install.packages("Hmisc")
-library("Hmisc")
-library("PerformanceAnalytics")
-library("dplyr")
-
 ##################################
 #1. Read data and cross tabulate.#
 ##################################
-Catch <- as.data.frame(read.csv("Plankton.csv",header=T))   # The output file "Plankton.csv" has an added first column (record number)
-Catch$date <- as.Date(Catch$date, "%Y-%m-%d")		            # Assign Date format 'yyyy-mm-dd'
-xtabs(~ year + month, data = Catch)                         # Crosstabulate the data by year and month
+filename <- paste(projdir.dat,"Plankton.csv",sep="") # filename
+Catch <- as_tibble(read.csv(filename,header=T))      # read file as a "tibble"
+Catch$date <- as.Date(Catch$date, "%Y-%m-%d")		     # Assign Date format 'yyyy-mm-dd'
 
-# 2. compute yearly means by species
-Catch.year <- Catch[,c(23,26:31)]                           # Select columns with log(ichthyoplankton values), include year
-Catch.byyear <- Catch.year %>%                              # Compute average CPUE by year and species
-  group_by(year) %>%
-  summarise_all(list(mean=mean), na.rm = TRUE)
+####################################
+# 2. compute annual means by species and plot
+####################################
+Catch %>%
+  select(year,log_cluhar:log_ammspp) %>%           # Select columns with log(ichthyoplankton values), include year
+  group_by(year) %>%                               # group CPUE data by year
+  summarise_all(list(mean=mean), na.rm = TRUE) ->  # Compute average CPUE by year and species
+  Catch.byyear
+colnames(Catch.byyear) <- c("year","herring","red.white.hake","pollock",
+                            "mackerel","butterfish","sandlance")   # rename columns
+# plot annual means
+Catch.byyear %>%
+  gather(key=species,value=cpue,herring:sandlance) %>%   # reformat table for plotting
+  ggplot(aes(x=year,y=cpue)) +                           # set up axes
+  geom_point() +                                         # plot points
+  ggtitle("Annual CPUE means") ->                        # main title
+  p                                                      # send plot format to 'p'
+facet(p,facet.by="species")                              # plot by species
 
-###########################################################
-# Correlation coefficients for two cases (lecture example)#
-###########################################################
-plot(Catch.byyear$year,Catch.byyear$log_urospp_mean,ylab="silver hake CPUE",xlab="year")
-par(mfrow = c(1,2))
-plot(Catch.byyear$log_urospp_mean,Catch.byyear$log_merbil_mean,ylab="silver hake",xlab="Red/white hake")
-plot(Catch.byyear$log_urospp_mean,Catch.byyear$log_cluhar_mean,ylab="herring",xlab="Red/white hake")
-rcorr(Catch.byyear$log_urospp_mean,Catch.byyear$log_merbil_mean, type = "pearson")
-rcorr(Catch.byyear$log_urospp_mean,Catch.byyear$log_cluhar_mean, type = "pearson")
-par(mfrow = c(1,1))
+#####################################################
+# 3. Plot data and compute correlation coefficients #
+#####################################################
+# for one species comparison, herring and red.white.hake 
+Catch.byyear %>%
+  ggplot(aes(x=herring,y=red.white.hake)) +
+  geom_point()
+cor.test(Catch.byyear$herring,Catch.byyear$red.white.hake)   # correlation coefficient
 
-####################################################################
-# 3. Plot data and compute correlation coefficients for all species#
-####################################################################
-pdf("correlation coefficient 3 output.pdf")
-my_data <- Catch.byyear[,c(2:7)]                           # Select columns with log(ichthyoplankton values), include year
-chart.Correlation(my_data, histogram=TRUE, pch=19)
-dev.off()
+# for all species
+Catch.byyear %>%
+  select(-c(year)) %>%                      # exclude year from the correlation analysis
+  chart.Correlation(histogram=TRUE, pch=19) # one-line command for correlation analysis :)
 
 # http://www.sthda.com/english/wiki/correlation-matrix-a-quick-start-guide-to-analyze-format-and-visualize-a-correlation-matrix-using-r-software
 #In the above plot:
